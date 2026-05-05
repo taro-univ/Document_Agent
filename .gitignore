@@ -1,0 +1,43 @@
+# ── 環境変数（絶対にコミットしない） ──────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Python ────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── 実行データ（個人の実行結果・キャッシュ） ──────────────────────────
+data/raw/
+data/output/
+catalog.json
+
+# ── Next.js / Node ────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.swc/
+node_modules/
+
+# ── Windows メタデータ ────────────────────────────────────────────────
+*.Zone.Identifier
+*:Zone.Identifier
+Thumbs.db
+
+# ── macOS ────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── エディタ ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
