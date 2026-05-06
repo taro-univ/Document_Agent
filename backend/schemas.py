@@ -21,9 +21,12 @@ class ApproveRequest(BaseModel):
 
 # ── Responses ────────────────────────────────────────────────────────────
 
+JobStatus = Literal["pending", "running", "done", "error"]
+
+
 class JobResponse(BaseModel):
     job_id: str
-    status: Literal["pending", "running", "done", "error"]
+    status: JobStatus
     total: int = Field(description="処理対象の総URL数")
     completed: int = Field(description="抽出完了数")
     failed: list[str] = Field(default_factory=list, description="失敗したURL")

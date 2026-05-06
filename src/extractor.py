@@ -9,7 +9,7 @@ import instructor
 import openai
 from dotenv import load_dotenv
 
-from src.models import BenchmarkEntry, BenchmarkReport, DocumentExtraction
+from src.extraction_models import BenchmarkEntry, BenchmarkReport, DocumentExtraction
 
 load_dotenv()
 
@@ -75,6 +75,34 @@ def get_client(provider: Provider):
         raise ValueError(f"Unsupported provider: {provider}")
 
 
+def build_instructor_kwargs(
+    *,
+    provider: Provider,
+    model: str,
+    system: str,
+    user_content: str,
+    response_model: type,
+    max_tokens: int = 4096,
+) -> dict:
+    """プロバイダーに応じてシステムプロンプトの渡し方を切り替えた kwargs を返す。
+
+    Anthropic は top-level の system パラメータを使用し、
+    OpenAI 互換プロバイダーは messages 先頭への system ロール挿入を使用する。
+    新プロバイダー追加時はここだけ修正すればよい。
+    """
+    kwargs: dict = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": user_content}],
+        "response_model": response_model,
+    }
+    if provider == "anthropic":
+        kwargs["system"] = system
+    else:
+        kwargs["messages"].insert(0, {"role": "system", "content": system})
+    return kwargs
+
+
 def extract(
     url: str,
     content: str,
@@ -96,20 +124,14 @@ def extract(
         "DocumentExtractionスキーマに従い情報を抽出してください。"
     )
 
-    kwargs: dict = dict(
-        max_tokens=4096,
-        messages=[{"role": "user", "content": user_content}],
+    kwargs = build_instructor_kwargs(
+        provider=provider,
+        model=model_name,
+        system=system,
+        user_content=user_content,
         response_model=DocumentExtraction,
     )
-
-    if provider == "anthropic":
-        kwargs["system"] = system
-        kwargs["model"] = model_name
-        return client.chat.completions.create(**kwargs)
-    else:
-        kwargs["model"] = model_name
-        kwargs["messages"].insert(0, {"role": "system", "content": system})
-        return client.chat.completions.create(**kwargs)
+    return client.chat.completions.create(**kwargs)
 
 
 def benchmark(

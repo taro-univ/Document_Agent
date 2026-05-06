@@ -27,9 +27,11 @@ export interface CatalogEntry {
   last_updated: string;
 }
 
+export type JobStatus = "pending" | "running" | "done" | "error";
+
 export interface JobResponse {
   job_id: string;
-  status: "pending" | "running" | "done" | "error";
+  status: JobStatus;
   total: number;
   completed: number;
   failed: string[];

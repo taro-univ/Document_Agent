@@ -4,18 +4,39 @@ import useSWR from "swr";
 import { api } from "@/lib/api";
 import type { JobResponse } from "@/types";
 
+interface JobLabels {
+  running?: string;
+  done?: string;
+  error?: string;
+}
+
 interface Props {
   jobId: string;
   onDone?: () => void;
+  pollingInterval?: number;
+  labels?: JobLabels;
 }
 
-export function JobStatusPoller({ jobId, onDone }: Props) {
+const DEFAULT_LABELS: Required<JobLabels> = {
+  running: "⏳ 抽出中…",
+  done: "✅ 抽出完了",
+  error: "⚠️ 一部エラー",
+};
+
+export function JobStatusPoller({
+  jobId,
+  onDone,
+  pollingInterval = 2000,
+  labels,
+}: Props) {
+  const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
+
   const { data } = useSWR<JobResponse>(
     `job-${jobId}`,
     () => api.getJob(jobId),
     {
       refreshInterval: (data) =>
-        data?.status === "done" || data?.status === "error" ? 0 : 2000,
+        data?.status === "done" || data?.status === "error" ? 0 : pollingInterval,
       onSuccess: (data) => {
         if ((data.status === "done" || data.status === "error") && onDone) {
           onDone();
@@ -34,7 +55,7 @@ export function JobStatusPoller({ jobId, onDone }: Props) {
     <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-indigo-700">
-          {isDone ? "✅ 抽出完了" : isError ? "⚠️ 一部エラー" : "⏳ 抽出中…"}
+          {isDone ? resolvedLabels.done : isError ? resolvedLabels.error : resolvedLabels.running}
         </span>
         <span className="text-indigo-500 text-xs">
           {data.completed} / {data.total} 件

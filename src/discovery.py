@@ -8,7 +8,7 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from src.extractor import Provider, _DEFAULT_MODELS, get_client
+from src.extractor import Provider, _DEFAULT_MODELS, build_instructor_kwargs, get_client
 from src.models import DiscoveryProposal, DiscoveryResult
 
 load_dotenv()
@@ -165,19 +165,13 @@ def evaluate(
         "全件を評価し、DiscoveryProposal 形式で items リストに返してください。"
     )
 
-    kwargs: dict = dict(
-        max_tokens=4096,
-        messages=[{"role": "user", "content": user_content}],
+    kwargs = build_instructor_kwargs(
+        provider=provider,
+        model=model_name,
+        system=_GATEKEEPER_SYSTEM_PROMPT,
+        user_content=user_content,
         response_model=_EvaluationOutput,
     )
-
-    if provider == "anthropic":
-        kwargs["system"] = _GATEKEEPER_SYSTEM_PROMPT
-        kwargs["model"] = model_name
-    else:
-        kwargs["model"] = model_name
-        kwargs["messages"].insert(0, {"role": "system", "content": _GATEKEEPER_SYSTEM_PROMPT})
-
     output: _EvaluationOutput = client.chat.completions.create(**kwargs)
 
     # Python側でスコアに基づいて採用/却下を分類

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
+from typing import get_args
 
 from src.models import (
     Catalog,
@@ -120,7 +121,7 @@ def list_by_status(status: CatalogStatus) -> list[CatalogEntry]:
 def summary() -> dict[CatalogStatus, int]:
     """ステータスごとの件数を返す。"""
     catalog = load()
-    counts: dict[str, int] = {s: 0 for s in ("proposed", "approved", "fetched", "extracted")}
+    counts: dict[str, int] = {s: 0 for s in get_args(CatalogStatus)}
     for entry in catalog.entries:
         counts[entry.status] += 1
     return counts  # type: ignore[return-value]

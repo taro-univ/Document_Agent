@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { useJobs } from "@/hooks/useJobs";
 import { ProposalCard } from "@/components/ProposalCard";
 import { RejectedList } from "@/components/RejectedList";
 import { JobStatusPoller } from "@/components/JobStatusPoller";
-import type { DiscoverResponse, JobResponse } from "@/types";
+import type { DiscoverResponse } from "@/types";
 
 export default function DiscoveryPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiscoverResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const { jobs, addJob } = useJobs();
 
   async function handleDiscover(e: React.FormEvent) {
     e.preventDefault();
@@ -30,8 +31,13 @@ export default function DiscoveryPage() {
     }
   }
 
-  function handleJobStarted(job: JobResponse) {
-    setJobs((prev) => [job, ...prev]);
+  async function handleApprove(url: string) {
+    try {
+      const job = await api.approve([url]);
+      addJob(job);
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   return (
@@ -96,7 +102,7 @@ export default function DiscoveryPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {result.proposals.map((p) => (
-                <ProposalCard key={p.url} proposal={p} onJobStarted={handleJobStarted} />
+                <ProposalCard key={p.url} proposal={p} onApprove={handleApprove} />
               ))}
             </div>
           )}

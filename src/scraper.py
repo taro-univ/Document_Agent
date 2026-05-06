@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import httpx
@@ -17,22 +18,15 @@ _HEADERS = {
 
 _REMOVE_TAGS = ["nav", "header", "footer", "aside", "script", "style", "noscript"]
 
+_SUPPLEMENT_URLS_PATH = Path(__file__).parent.parent / "supplement_urls.json"
+
 # URLスラッグ → Pass 2 で追加取得する補完ページ
-SUPPLEMENT_URLS: dict[str, list[str]] = {
-    "what-is-github-copilot": [
-        "https://docs.github.com/en/copilot/quickstart",
-        "https://docs.github.com/en/copilot/github-copilot-in-the-cli/about-github-copilot-in-the-cli",
-        "https://docs.github.com/en/copilot/about-github-copilot/plans-for-github-copilot",
-    ],
-    "about-billing-for-github-copilot": [
-        "https://docs.github.com/en/copilot/about-github-copilot/plans-for-github-copilot",
-        "https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-copilot/about-billing-for-github-copilot",
-    ],
-    "about-github-models": [
-        "https://docs.github.com/en/github-models/use-github-models",
-        "https://docs.github.com/en/github-models/prototyping-with-ai-models",
-    ],
-}
+# 設定は supplement_urls.json で管理。ファイルがなければ空dict。
+SUPPLEMENT_URLS: dict[str, list[str]] = (
+    json.loads(_SUPPLEMENT_URLS_PATH.read_text(encoding="utf-8"))
+    if _SUPPLEMENT_URLS_PATH.exists()
+    else {}
+)
 
 
 def slug_from_url(url: str) -> str:

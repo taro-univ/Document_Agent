@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import src.catalog as catalog_module
 from src.discovery import discover
 from src.main import process_url
+from src.scraper import slug_from_url
 
 from backend.schemas import (
     ApproveRequest,
@@ -32,9 +34,11 @@ app = FastAPI(
     description="GitHub ドキュメント解析エージェントのREST API",
 )
 
+_cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -158,7 +162,7 @@ def _run_extraction(job_id: str, urls: list[str]) -> None:
     for url in urls:
         try:
             json_path = process_url(url)
-            slug = url.rstrip("/").split("/")[-1]
+            slug = slug_from_url(url)
             catalog_module.set_status(
                 url,
                 "extracted",

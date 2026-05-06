@@ -3,9 +3,10 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
+import { useJobs } from "@/hooks/useJobs";
 import { CatalogCard } from "@/components/CatalogCard";
 import { JobStatusPoller } from "@/components/JobStatusPoller";
-import type { CatalogResponse, CatalogStatus, JobResponse } from "@/types";
+import type { CatalogResponse, CatalogStatus } from "@/types";
 
 const TABS: { label: string; value: CatalogStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -17,7 +18,8 @@ const TABS: { label: string; value: CatalogStatus | "all" }[] = [
 export default function CatalogPage() {
   const [tab, setTab] = useState<CatalogStatus | "all">("all");
   const [approvingUrl, setApprovingUrl] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const { jobs, addJob } = useJobs();
+  const [error, setError] = useState<string | null>(null);
 
   const { data, mutate } = useSWR<CatalogResponse>("catalog", api.getCatalog, {
     refreshInterval: 5000,
@@ -28,22 +30,24 @@ export default function CatalogPage() {
 
   async function handleApprove(url: string) {
     setApprovingUrl(url);
+    setError(null);
     try {
       const job = await api.approve([url]);
-      setJobs((prev) => [job, ...prev]);
+      addJob(job);
     } catch (err) {
-      alert(`エラー: ${(err as Error).message}`);
+      setError((err as Error).message);
     } finally {
       setApprovingUrl(null);
     }
   }
 
   async function handleApproveAll() {
+    setError(null);
     try {
       const job = await api.approveAll();
-      setJobs((prev) => [job, ...prev]);
+      addJob(job);
     } catch (err) {
-      alert(`エラー: ${(err as Error).message}`);
+      setError((err as Error).message);
     }
   }
 
@@ -67,6 +71,12 @@ export default function CatalogPage() {
           </button>
         )}
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          ⚠️ {error}
+        </div>
+      )}
 
       {/* ジョブ進捗 */}
       {jobs.length > 0 && (

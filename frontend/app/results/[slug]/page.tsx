@@ -6,6 +6,11 @@ import ReactMarkdown from "react-markdown";
 import { api } from "@/lib/api";
 import type { ResultResponse } from "@/types";
 
+function getString(obj: Record<string, unknown>, key: string): string | undefined {
+  const val = obj[key];
+  return typeof val === "string" ? val : undefined;
+}
+
 export default function ResultPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { data, error, isLoading } = useSWR<ResultResponse>(
@@ -21,7 +26,10 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
   );
   if (!data) return null;
 
-  const meta = data.json_data as Record<string, string>;
+  const productName = getString(data.json_data, "product_name");
+  const namespace   = getString(data.json_data, "namespace");
+  const lastUpdated = getString(data.json_data, "last_updated");
+  const sourceUrl   = getString(data.json_data, "source_url");
 
   return (
     <div className="space-y-6">
@@ -30,20 +38,20 @@ export default function ResultPage({ params }: { params: Promise<{ slug: string 
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
-              {meta.product_name ?? slug}
+              {productName ?? slug}
             </h1>
-            <p className="mt-0.5 text-sm text-indigo-600">{meta.namespace}</p>
+            <p className="mt-0.5 text-sm text-indigo-600">{namespace}</p>
           </div>
-          <span className="shrink-0 text-xs text-gray-400">{meta.last_updated}</span>
+          <span className="shrink-0 text-xs text-gray-400">{lastUpdated}</span>
         </div>
-        {meta.source_url && (
+        {sourceUrl && (
           <a
-            href={meta.source_url}
+            href={sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2 block text-xs text-blue-500 hover:underline truncate"
           >
-            {meta.source_url}
+            {sourceUrl}
           </a>
         )}
       </div>

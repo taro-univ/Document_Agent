@@ -1,0 +1,15 @@
+{
+  "what-is-github-copilot": [
+    "https://docs.github.com/en/copilot/quickstart",
+    "https://docs.github.com/en/copilot/github-copilot-in-the-cli/about-github-copilot-in-the-cli",
+    "https://docs.github.com/en/copilot/about-github-copilot/plans-for-github-copilot"
+  ],
+  "about-billing-for-github-copilot": [
+    "https://docs.github.com/en/copilot/about-github-copilot/plans-for-github-copilot",
+    "https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-copilot/about-billing-for-github-copilot"
+  ],
+  "about-github-models": [
+    "https://docs.github.com/en/github-models/use-github-models",
+    "https://docs.github.com/en/github-models/prototyping-with-ai-models"
+  ]
+}

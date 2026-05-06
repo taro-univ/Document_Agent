@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
-import type { DiscoveryProposal, JobResponse } from "@/types";
+import { ScoreBar } from "@/components/ScoreBar";
+import type { DiscoveryProposal } from "@/types";
 
 interface Props {
   proposal: DiscoveryProposal;
-  onJobStarted: (job: JobResponse) => void;
+  onApprove: (url: string) => Promise<void>;
 }
 
-export function ProposalCard({ proposal, onJobStarted }: Props) {
+export function ProposalCard({ proposal, onApprove }: Props) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const score = proposal.signals.quality_score;
@@ -17,11 +17,8 @@ export function ProposalCard({ proposal, onJobStarted }: Props) {
   async function handleApprove() {
     setLoading(true);
     try {
-      const job = await api.approve([proposal.url]);
-      onJobStarted(job);
+      await onApprove(proposal.url);
       setDone(true);
-    } catch (e) {
-      alert(`エラー: ${(e as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -74,14 +71,3 @@ export function ProposalCard({ proposal, onJobStarted }: Props) {
   );
 }
 
-function ScoreBar({ score }: { score: number }) {
-  const color = score >= 8 ? "bg-green-500" : score >= 6 ? "bg-yellow-400" : "bg-red-400";
-  return (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <div className="w-20 h-1.5 rounded-full bg-gray-200">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${score * 10}%` }} />
-      </div>
-      <span className="text-xs text-gray-500">{score}/10</span>
-    </div>
-  );
-}

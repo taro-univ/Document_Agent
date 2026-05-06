@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 
 import src.catalog as catalog
 from src.discovery import discover
-from src.extractor import benchmark, extract
-from src.models import BenchmarkReport, CatalogEntry, DiscoveryResult, DocumentExtraction
-from src.scraper import fetch_and_clean, fetch_supplements
+from src.extractor import Provider, benchmark, extract
+from src.extraction_models import BenchmarkReport, DocumentExtraction
+from src.formatter import benchmark_to_markdown, to_markdown
+from src.models import CatalogEntry, DiscoveryResult
+from src.scraper import fetch_and_clean, fetch_supplements, slug_from_url
 
 load_dotenv()
 
@@ -55,46 +57,44 @@ def _detect_empty_fields(r: DocumentExtraction) -> list[str]:
 def _merge(pass1: DocumentExtraction, pass2: DocumentExtraction) -> DocumentExtraction:
     d1 = pass1.model_dump()
     d2 = pass2.model_dump()
-    for field in ("ai_models", "supported_ecosystems", "interface_tools"):
-        if _is_empty(d1["tech_spec"][field]) and not _is_empty(d2["tech_spec"][field]):
-            d1["tech_spec"][field] = d2["tech_spec"][field]
-    if _is_empty(d1["commands_scripts"]) and not _is_empty(d2["commands_scripts"]):
+
+    if _is_empty(pass1.tech_spec.ai_models) and not _is_empty(pass2.tech_spec.ai_models):
+        d1["tech_spec"]["ai_models"] = d2["tech_spec"]["ai_models"]
+    if _is_empty(pass1.tech_spec.supported_ecosystems) and not _is_empty(pass2.tech_spec.supported_ecosystems):
+        d1["tech_spec"]["supported_ecosystems"] = d2["tech_spec"]["supported_ecosystems"]
+    if _is_empty(pass1.tech_spec.interface_tools) and not _is_empty(pass2.tech_spec.interface_tools):
+        d1["tech_spec"]["interface_tools"] = d2["tech_spec"]["interface_tools"]
+    if _is_empty(pass1.commands_scripts) and not _is_empty(pass2.commands_scripts):
         d1["commands_scripts"] = d2["commands_scripts"]
-    if _is_empty(d1["use_case_info"]["custom_agents"]) and not _is_empty(
-        d2["use_case_info"]["custom_agents"]
-    ):
+    if _is_empty(pass1.use_case_info.custom_agents) and not _is_empty(pass2.use_case_info.custom_agents):
         d1["use_case_info"]["custom_agents"] = d2["use_case_info"]["custom_agents"]
-    if d1["timeline"] is None and d2["timeline"] is not None:
+    if pass1.timeline is None and pass2.timeline is not None:
         d1["timeline"] = d2["timeline"]
-    if _is_empty(d1["embedded_relevance"]) and not _is_empty(d2["embedded_relevance"]):
+    if _is_empty(pass1.embedded_relevance) and not _is_empty(pass2.embedded_relevance):
         d1["embedded_relevance"] = d2["embedded_relevance"]
-    all_notes = d1["constraints_notes"] + [
-        n for n in d2["constraints_notes"] if n not in d1["constraints_notes"]
+
+    d1["constraints_notes"] = pass1.constraints_notes + [
+        n for n in pass2.constraints_notes if n not in pass1.constraints_notes
     ]
-    d1["constraints_notes"] = all_notes
     return DocumentExtraction(**d1)
-
-
-def _slug(url: str) -> str:
-    return url.rstrip("/").split("/")[-1]
 
 
 def _save(slug: str, result: DocumentExtraction) -> None:
     (OUTPUT_DIR / f"{slug}.json").write_text(result.model_dump_json(indent=2), encoding="utf-8")
-    (OUTPUT_DIR / f"{slug}.md").write_text(_to_markdown(result), encoding="utf-8")
+    (OUTPUT_DIR / f"{slug}.md").write_text(to_markdown(result), encoding="utf-8")
 
 
 # ── コアコマンド ─────────────────────────────────────────────────────────
 
-def process_url(url: str, force_refresh: bool = False) -> str:
+def process_url(url: str, force_refresh: bool = False, provider: Provider = "github_models") -> str:
     """2パス抽出を実行して出力ファイルを保存する。保存したJSONパスを返す。"""
-    slug = _slug(url)
+    slug = slug_from_url(url)
 
     print(f"[pass1/fetch]   {url}")
     main_content = fetch_and_clean(url, force_refresh=force_refresh)
 
     print(f"[pass1/extract] {url}")
-    pass1_result = extract(url, main_content, provider="github_models")
+    pass1_result = extract(url, main_content, provider=provider)
 
     empty_fields = _detect_empty_fields(pass1_result)
     if not empty_fields:
@@ -115,7 +115,7 @@ def process_url(url: str, force_refresh: bool = False) -> str:
     combined_content = f"{main_content}\n\n---\n\n{supplement}"
 
     print(f"[pass2/extract] {url}")
-    pass2_result = extract(url, combined_content, provider="github_models", is_pass2=True)
+    pass2_result = extract(url, combined_content, provider=provider, is_pass2=True)
 
     final = _merge(pass1_result, pass2_result)
     filled = [f for f in empty_fields if not _is_empty(
@@ -133,12 +133,12 @@ def benchmark_url(url: str, force_refresh: bool = False) -> None:
     content = fetch_and_clean(url, force_refresh=force_refresh)
     print(f"[benchmark] {url}")
     report = benchmark(url, content)
-    slug = _slug(url)
+    slug = slug_from_url(url)
     (OUTPUT_DIR / f"{slug}_benchmark.json").write_text(
         report.model_dump_json(indent=2), encoding="utf-8"
     )
     (OUTPUT_DIR / f"{slug}_benchmark.md").write_text(
-        _benchmark_to_markdown(report), encoding="utf-8"
+        benchmark_to_markdown(report), encoding="utf-8"
     )
     print(f"[saved] {slug}_benchmark.json / {slug}_benchmark.md\n")
 
@@ -241,53 +241,6 @@ def _print_catalog_summary() -> None:
     )
 
 
-def _benchmark_to_markdown(report: BenchmarkReport) -> str:
-    lines = ["# Benchmark Report", f"**URL**: {report.url}", ""]
-    lines += ["| Provider | Model | Elapsed (s) |", "|---|---|---|"]
-    for e in report.entries:
-        lines.append(f"| {e.provider} | {e.model_name} | {e.elapsed_sec} |")
-    lines.append("")
-    for e in report.entries:
-        lines += [f"## {e.provider} / {e.model_name}", _to_markdown(e.extraction), ""]
-    return "\n".join(lines)
-
-
-def _to_markdown(r: DocumentExtraction) -> str:
-    lines: list[str] = [
-        f"# {r.product_name} ({r.namespace})",
-        f"**Source**: {r.source_url}  |  **Last Updated**: {r.last_updated}",
-        "",
-        "## 価格・プラン",
-        f"- **課金方式**: {r.billing.billing_model}",
-        f"- **対象プラン**: {', '.join(r.billing.plans_available)}",
-        f"- **使用制限**: {r.billing.usage_limits}",
-        "",
-        "## 技術仕様",
-        f"- **AIモデル**: {', '.join(r.tech_spec.ai_models)}",
-        f"- **対応エコシステム**: {', '.join(r.tech_spec.supported_ecosystems)}",
-        f"- **インターフェース**: {', '.join(r.tech_spec.interface_tools)}",
-        "",
-        "## 活用シーン",
-        f"- **ユースケース**: {', '.join(r.use_case_info.use_cases)}",
-        f"- **カスタムエージェント**: {r.use_case_info.custom_agents}",
-        "",
-        "## コマンド例",
-    ]
-    for cmd in r.commands_scripts:
-        lines.append(f"```\n{cmd}\n```")
-    lines += ["", "## 注意事項"]
-    for note in r.constraints_notes:
-        lines.append(f"- {note}")
-    if r.timeline:
-        lines += [
-            "",
-            "## 移行スケジュール（2026年6月）",
-            f"- **[Current]**: {r.timeline.current}",
-            f"- **[Post-June 2026]**: {r.timeline.post_june_2026}",
-        ]
-    if r.embedded_relevance:
-        lines += ["", "## 組み込み開発への適用", r.embedded_relevance]
-    return "\n".join(lines) + "\n"
 
 
 # ── エントリーポイント ───────────────────────────────────────────────────
